@@ -24,8 +24,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <getopt.h>
-
-#include "timepps.h"
+#include <sys/timepps.h>
 
 /* variables for the command-line operations
  * 0 means no operation
@@ -37,7 +36,8 @@ static int do_setflags = 0;	/* should we manipulate kernel NTP PPS flags? */
 static int opt_edge = PPS_CAPTURECLEAR;	/* which edge to use? */
 static char *device;
 
-static int find_source(char *path, pps_handle_t *handle, int *avail_mode)
+static int
+find_source(char *path, pps_handle_t *handle, int *avail_mode)
 {
 	int ret;
 
@@ -77,57 +77,62 @@ static int find_source(char *path, pps_handle_t *handle, int *avail_mode)
 	return 0;
 }
 
-static inline int bind(pps_handle_t handle, int edge)
+static inline int
+bind(pps_handle_t handle, int edge)
 {
 	return time_pps_kcbind(handle, PPS_KC_HARDPPS, edge, PPS_TSFMT_TSPEC);
 }
 
-static inline int unbind(pps_handle_t handle)
+static inline int
+unbind(pps_handle_t handle)
 {
 	return time_pps_kcbind(handle, PPS_KC_HARDPPS, 0, PPS_TSFMT_TSPEC);
 }
 
-static inline int set_flags()
+static inline int
+set_flags()
 {
 	struct timex tmx = { .modes = 0 };
 
-	if (adjtimex(&tmx) == -1) {
-		fprintf(stderr, "adjtimex get failed: %s\n", strerror(errno));
+	if (ntp_adjtime(&tmx) == -1) {
+		fprintf(stderr, "ntp_adjtime get failed: %s\n", strerror(errno));
 		return -1;
 	}
 
-	tmx.modes = ADJ_STATUS;
+	tmx.modes = MOD_STATUS;
 	tmx.status |= (STA_PPSFREQ | STA_PPSTIME);
 
-	if (adjtimex(&tmx) == -1) {
-		fprintf(stderr, "adjtimex set failed: %s\n", strerror(errno));
+	if (ntp_adjtime(&tmx) == -1) {
+		fprintf(stderr, "ntp_adjtime set failed: %s\n", strerror(errno));
 		return -1;
 	}
 
 	return 0;
 }
 
-static inline int unset_flags()
+static inline int
+unset_flags()
 {
 	struct timex tmx = { .modes = 0 };
 
-	if (adjtimex(&tmx) == -1) {
-		fprintf(stderr, "adjtimex get failed: %s\n", strerror(errno));
+	if (ntp_adjtime(&tmx) == -1) {
+		fprintf(stderr, "ntp_adjtime get failed: %s\n", strerror(errno));
 		return -1;
 	}
 
-	tmx.modes = ADJ_STATUS;
+	tmx.modes = MOD_STATUS;
 	tmx.status &= ~(STA_PPSFREQ | STA_PPSTIME);
 
-	if (adjtimex(&tmx) == -1) {
-		fprintf(stderr, "adjtimex set failed: %s\n", strerror(errno));
+	if (ntp_adjtime(&tmx) == -1) {
+		fprintf(stderr, "ntp_adjtime set failed: %s\n", strerror(errno));
 		return -1;
 	}
 
 	return 0;
 }
 
-static inline void usage(char *name)
+static inline void
+usage(char *name)
 {
 	fprintf(stderr, "Usage: %s [-bBfFac] <ppsdev>\n"
 			"Commands:\n"
@@ -141,7 +146,8 @@ static inline void usage(char *name)
 			name);
 }
 
-static void parse_args(int argc, char **argv)
+static void
+parse_args(int argc, char **argv)
 {
 	while (1)
 	{
@@ -218,7 +224,8 @@ static void parse_args(int argc, char **argv)
 	}
 }
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
 	pps_handle_t handle;
 	int avail_mode;
