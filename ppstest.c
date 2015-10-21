@@ -20,10 +20,10 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/timepps.h>
 
-#include "timepps.h"
-
-int find_source(char *path, pps_handle_t *handle, int *avail_mode)
+int
+find_source(char *path, pps_handle_t *handle, int *avail_mode)
 {
 	pps_params_t params;
 	int ret;
@@ -80,7 +80,8 @@ int find_source(char *path, pps_handle_t *handle, int *avail_mode)
 	return 0;
 }
 
-int fetch_source(int i, pps_handle_t *handle, int *avail_mode)
+int
+fetch_source(int i, pps_handle_t *handle, int *avail_mode)
 {
 	struct timespec timeout;
 	pps_info_t infobuf;
@@ -115,21 +116,24 @@ retry:
 	       i,
 	       infobuf.assert_timestamp.tv_sec,
 	       infobuf.assert_timestamp.tv_nsec,
-	       infobuf.assert_sequence,
+	       (long)infobuf.assert_sequence,
 	       infobuf.clear_timestamp.tv_sec,
-	       infobuf.clear_timestamp.tv_nsec, infobuf.clear_sequence);
+	       infobuf.clear_timestamp.tv_nsec,
+	       (long)infobuf.clear_sequence);
 	fflush(stdout);
 
 	return 0;
 }
 
-void usage(char *name)
+void
+usage(char *name)
 {
 	fprintf(stderr, "usage: %s <ppsdev> [<ppsdev> ...]\n", name);
 	exit(EXIT_FAILURE);
 }
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
 	int num;
 	pps_handle_t handle[4];
