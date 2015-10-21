@@ -22,8 +22,7 @@
 #include <sys/stat.h>
 #include <getopt.h>
 #include <signal.h>
-
-#include "timepps.h"
+#include <sys/timepps.h>
 
 /* variables for the command-line parameters */
 static char *device;
@@ -36,7 +35,18 @@ static int overflows = 0;
 static int max_unsync = 0;
 static int max_divergence = 0;
 
-int find_source(char *path, pps_handle_t *handle, int *avail_mode)
+static void
+perr_dev(const char *fmt, const char *dev)
+{
+	char buf[512];
+
+	sprintf(buf, fmt, dev);
+	perror(buf);
+}
+
+
+int
+find_source(char *path, pps_handle_t *handle, int *avail_mode)
 {
 	pps_params_t params;
 	int ret;
@@ -46,15 +56,15 @@ int find_source(char *path, pps_handle_t *handle, int *avail_mode)
 	/* Try to find the source by using the supplied "path" name */
 	ret = open(path, O_RDWR);
 	if (ret < 0) {
-		fprintf(stderr, "unable to open device \"%s\" (%m)\n", path);
+		perr_dev("unable to open device \"%s\"\n", path);
 		return ret;
 	}
 
 	/* Open the PPS source (and check the file descriptor) */
 	ret = time_pps_create(ret, handle);
 	if (ret < 0) {
-		fprintf(stderr, "cannot create a PPS source from device "
-				"\"%s\" (%m)\n", path);
+		perr_dev("cannot create a PPS source from device "
+			 "\"%s\"\n", path);
 		return -1;
 	}
 	printf("found PPS source \"%s\"\n", path);
@@ -62,7 +72,7 @@ int find_source(char *path, pps_handle_t *handle, int *avail_mode)
 	/* Find out what features are supported */
 	ret = time_pps_getcap(*handle, avail_mode);
 	if (ret < 0) {
-		fprintf(stderr, "cannot get capabilities (%m)\n");
+		perror("cannot get capabilities");
 		return -1;
 	}
 
@@ -70,17 +80,17 @@ int find_source(char *path, pps_handle_t *handle, int *avail_mode)
 		/* Get current parameters */
 		ret = time_pps_getparams(*handle, &params);
 		if (ret < 0) {
-			fprintf(stderr, "cannot get parameters (%m)\n");
+			perror("cannot get capabilities");
 			return -1;
 		}
 		params.mode |= mode;
 		ret = time_pps_setparams(*handle, &params);
 		if (ret < 0) {
-			fprintf(stderr, "cannot set parameters (%m)\n");
+			perror("cannot set parameters");
 			return -1;
 		}
 	} else {
-		fprintf(stderr, "selected mode not supported (%m)\n");
+		perror("selected mode not supported");
 		return -1;
 	}
 
@@ -91,7 +101,8 @@ int find_source(char *path, pps_handle_t *handle, int *avail_mode)
 static int curr_unsync = 0;
 
 #define NSEC_PER_SEC 1000000000L
-int fetch_source(pps_handle_t handle, int avail_mode)
+int
+fetch_source(pps_handle_t handle, int avail_mode)
 {
 	struct timespec timeout = { 3, 0 };
 	struct timespec ts = { 0, 0 };
@@ -113,7 +124,7 @@ int fetch_source(pps_handle_t handle, int avail_mode)
 			return -1;
 		}
 
-		fprintf(stderr, "time_pps_fetch() error %d (%m)\n", ret);
+		perror("time_pps_fetch() error");
 		return -1;
 	}
 
@@ -137,7 +148,8 @@ int fetch_source(pps_handle_t handle, int avail_mode)
 	if (max_divergence < div)
 		max_divergence = div;
 	if (div >= margin) {
-		printf("timestamp: %ld, sequence: %ld, offset: % 6ld\n", ts.tv_sec, seq, ts.tv_nsec);
+		printf("timestamp: %ld, sequence: %ld, offset: % 6ld\n",
+		       ts.tv_sec, seq, ts.tv_nsec);
 		fflush(stdout);
 		overflows++;
 		curr_unsync++;
@@ -150,12 +162,14 @@ int fetch_source(pps_handle_t handle, int avail_mode)
 	return 0;
 }
 
-static void usage(char *name)
+static void
+usage(char *name)
 {
 	fprintf(stderr, "usage: %s [-a | -c] <ppsdev>\n", name);
 }
 
-static void parse_args(int argc, char **argv)
+static void
+parse_args(int argc, char **argv)
 {
 	while (1)
 	{
@@ -193,11 +207,15 @@ static void parse_args(int argc, char **argv)
 					char *c;
 					margin = strtoul(optarg, &c, 0);
 					if (*c) {
-						fprintf(stderr, "Error parsing margin value.\n");
+						fprintf(stderr,
+							"Error parsing margin "
+							"value.\n");
 						exit(1);
 					}
 					if (margin < 0) {
-						fprintf(stderr, "Negative margin not supported.\n");
+						fprintf(stderr,
+							"Negative margin not "
+							"supported.\n");
 						exit(1);
 					}
 					break;
@@ -222,21 +240,26 @@ static void parse_args(int argc, char **argv)
 	}
 }
 
-void print_stats()
+void
+print_stats()
 {
 	printf("\n\nTotal number of PPS signals: %d\n", total);
 	if (margin) {
-		printf("Number of overflows:         %d (%f%%)\n", overflows, 100.0 * (double)overflows / (double)total);
+		printf("Number of overflows:         %d (%f%%)\n",
+		       overflows, 100.0 * (double)overflows / (double)total);
 		printf("Maximum unsynchronized time: %d\n", max_unsync);
 	}
 	printf("Maximum divergence: %d\n", max_divergence);
 }
 
-static void sighandler_exit(int signum) {
+static void
+sighandler_exit(int signum) {
 	print_stats();
+	exit(0);
 }
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
 	pps_handle_t handle;
 	int avail_mode;
